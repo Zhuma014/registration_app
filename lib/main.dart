@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:registration_app/screens/home.dart';
 
 class MyApp extends StatelessWidget {
-  final List<Map<String, dynamic>> items;
-
-  MyApp(this.items);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -16,13 +14,11 @@ class MyApp extends StatelessWidget {
           seedColor: Color.fromARGB(255, 89, 24, 141),
         ),
       ),
-      home: HomeScreen(items),
+      home: HomeScreen(),
     );
   }
 }
 
 void main() {
-  List<Map<String, dynamic>> items = [];
-
-  runApp(MyApp(items));
+  runApp(MyApp());
 }

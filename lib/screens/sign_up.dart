@@ -5,43 +5,36 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 class SignupScreen extends StatefulWidget {
-  final List items;
-  final String formDescription;
-  final String confirmationMessage;
+  SignupScreen({Key? key}) : super(key: key);
 
-  SignupScreen(
-      {required this.items,
-      required this.formDescription,
-      required this.confirmationMessage,
-      Key? key})
-      : super(key: key);
   @override
   _SignupScreenState createState() => _SignupScreenState();
 }
 
 class _SignupScreenState extends State<SignupScreen> {
+  List items = [];
   final GlobalKey<FormState> _form = GlobalKey<FormState>();
-  late String formTitle;
-  late String formDescription;
-  late String confirmationMessage;
+  String formTitle = '';
+  String formDescription = '';
+  String confirmationMessage = '';
 
   @override
   void initState() {
     super.initState();
-    formTitle = '';
-    formDescription = '';
-    confirmationMessage = '';
-    loadForm();
+    loadFormFields();
   }
 
-  Future<void> loadForm() async {
-    final String response = await rootBundle.loadString('assets/form.json');
-    final data = json.decode(response);
+  Future<void> loadFormFields() async {
+    final String response1 = await rootBundle.loadString('assets/form.json');
+    final form = json.decode(response1);
+    final String response2 = await rootBundle.loadString('assets/fields.json');
+    final fields = await json.decode(response2);
     setState(() {
-      formTitle = data['title'];
-      formDescription = data['description'];
+      formTitle = form['title'];
+      formDescription = form['description'];
       confirmationMessage =
-          data['presentation']['submission']['confirmation_message'];
+          form['presentation']['submission']['confirmation_message'];
+      items = fields;
     });
   }
 
@@ -77,184 +70,209 @@ class _SignupScreenState extends State<SignupScreen> {
     }
   }
 
-  TextInputType _getKeyboardType(int fieldId) {
-    if (fieldId == 5 || fieldId == 6) {
-      return TextInputType.number;
-    } else {
-      return TextInputType.name;
-    }
-  }
-
   List<Widget> _buildFormFields() {
-    return widget.items.map<Widget>((item) {
+    Widget buildTextFormField(Map<String, dynamic> item) {
+      return TextFormField(
+        decoration: InputDecoration(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          labelText: item["title"],
+        ),
+        keyboardType: TextInputType.name,
+        autocorrect: false,
+        textCapitalization: TextCapitalization.none,
+        validator: (value) {
+          if (item["is_required"] && (value == null || value.trim().isEmpty)) {
+            return item["errors"]["blank"];
+          }
+
+          return null;
+        },
+        onSaved: (value) {
+          switch (item["title"]) {
+            case "First name":
+              _enteredFirstName = value!;
+              break;
+            case "Last name":
+              _enteredLastName = value!;
+              break;
+            case "Middle name":
+              _enteredMiddleName = value!;
+              break;
+            case "Username":
+              _enteredUsername = value!;
+              break;
+            default:
+              break;
+          }
+        },
+      );
+    }
+
+    Widget buildNumberFormField(Map<String, dynamic> item) {
+      return TextFormField(
+        decoration: InputDecoration(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          labelText: item["title"],
+        ),
+        keyboardType: TextInputType.number,
+        autocorrect: false,
+        textCapitalization: TextCapitalization.none,
+        validator: (value) {
+          if (item["is_required"] && (value == null || value.trim().isEmpty)) {
+            return item["errors"]["blank"];
+          }
+
+          if (item["title"] == "IIN") {
+            final RegExp iinRegex = RegExp(item["validators"]["regex"]);
+            if (!iinRegex.hasMatch(value!)) {
+              return item["errors"]["regex"];
+            }
+          } else if (item["title"] == "Phone number") {
+            final RegExp phoneRegex = RegExp(item["validators"]["regex"]);
+            if (!phoneRegex.hasMatch(value!)) {
+              return item["errors"]["regex"];
+            }
+          }
+          return null;
+        },
+        onSaved: (value) {
+          switch (item["title"]) {
+            case "IIN":
+              _enteredIIN = value!;
+              break;
+            case "Phone number":
+              _enteredPhone = value!;
+              break;
+            default:
+              break;
+          }
+        },
+      );
+    }
+
+    Widget buildDateSelectionField(Map<String, dynamic> item) {
+      return TextFormField(
+        controller: _enteredBirthday,
+        decoration: InputDecoration(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          labelText: item["title"],
+          suffixIcon: Icon(Icons.calendar_today_rounded),
+        ),
+        onTap: () async {
+          DateTime? _pickedBirthday = await showDatePicker(
+            context: context,
+            initialDate: DateTime.now(),
+            firstDate: DateTime(1980),
+            lastDate: DateTime.now(),
+          );
+
+          if (_pickedBirthday != null) {
+            setState(() {
+              _enteredBirthday.text =
+                  DateFormat('yyyy-MM-dd').format(_pickedBirthday);
+            });
+          }
+        },
+        autocorrect: false,
+        textCapitalization: TextCapitalization.none,
+        validator: (value) {
+          if (item["is_required"] && (value == null || value.trim().isEmpty)) {
+            return item["errors"]["blank"];
+          }
+          return null;
+        },
+        onSaved: (value) {
+          _enteredBirthday.text = value!;
+        },
+      );
+    }
+
+    Widget buildPasswordField(Map<String, dynamic> item) {
+      return TextFormField(
+        controller: _password,
+        decoration: InputDecoration(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          labelText: item["title"],
+        ),
+        keyboardType: TextInputType.text,
+        obscureText: true,
+        validator: (value) {
+          if (item["is_required"] && (value == null || value.trim().isEmpty)) {
+            return item["errors"]["blank"];
+          }
+
+          final RegExp passwordRegex = RegExp(r'^(?=.*[A-Z])(?=.*\d).{6,25}$');
+
+          if (!passwordRegex.hasMatch(value!)) {
+            return item["errors"]["regex"];
+          }
+
+          return null;
+        },
+      );
+    }
+
+    Widget buildConfirmPasswordField(Map<String, dynamic> item) {
+      return TextFormField(
+        controller: _confirmPass,
+        decoration: InputDecoration(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          labelText: item["title"],
+        ),
+        keyboardType: TextInputType.text,
+        obscureText: true,
+        validator: (value) {
+          if (item["is_required"] && (value == null || value.trim().isEmpty)) {
+            return item["errors"]["blank"];
+          }
+
+          if (value != _password.text) {
+            return item["errors"]["target_value_mismatch"];
+          }
+
+          return null;
+        },
+      );
+    }
+
+    return items.map<Widget>((item) {
+      Widget buildForm;
+
       switch (item["type"]) {
         case "input_text":
-          return Padding(
-            padding: const EdgeInsets.only(top: 15, left: 15, right: 15),
-            child: TextFormField(
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                labelText: item["title"],
-              ),
-              keyboardType: _getKeyboardType(item["id"]),
-              autocorrect: false,
-              textCapitalization: TextCapitalization.none,
-              validator: (value) {
-                if (item["is_required"] &&
-                    (value == null || value.trim().isEmpty)) {
-                  return item["errors"]["blank"];
-                }
-
-                if (item["id"] == 5) {
-                  if (item["is_required"] &&
-                      (value == null || value.trim().isEmpty)) {
-                    return item["errors"]["blank"];
-                  }
-                  final RegExp iinRegex = RegExp(item["validators"]["regex"]);
-                  if (!iinRegex.hasMatch(value!)) {
-                    return item["errors"]["regex"];
-                  }
-                } else if (item["id"] == 6) {
-                  if (item["is_required"] &&
-                      (value == null || value.trim().isEmpty)) {
-                    return item["errors"]["blank"];
-                  }
-
-                  final RegExp phoneRegex = RegExp(item["validators"]["regex"]);
-                  if (!phoneRegex.hasMatch(value!)) {
-                    return item["errors"]["regex"];
-                  }
-                }
-                return null;
-              },
-              onSaved: (value) {
-                switch (item["title"]) {
-                  case "First name":
-                    _enteredFirstName = value!;
-                    break;
-                  case "Last name":
-                    _enteredLastName = value!;
-                    break;
-                  case "Middle name":
-                    _enteredMiddleName = value!;
-                    break;
-                  case "Username":
-                    _enteredUsername = value!;
-                    break;
-                  case "IIN":
-                    _enteredIIN = value!;
-                    break;
-                  case "Phone number":
-                    _enteredPhone = value!;
-                    break;
-                  default:
-                    break;
-                }
-              },
-            ),
-          );
+          buildForm = buildTextFormField(item);
+          break;
+        case "input_number":
+          buildForm = buildNumberFormField(item);
+          break;
         case "date_selection":
-          return Padding(
-            padding: const EdgeInsets.only(top: 15, left: 15, right: 15),
-            child: TextFormField(
-              controller: _enteredBirthday,
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                labelText: item["title"],
-                suffixIcon: Icon(Icons.calendar_today_rounded),
-              ),
-              onTap: () async {
-                DateTime? _pickedBirthday = await showDatePicker(
-                  context: context,
-                  initialDate: DateTime.now(),
-                  firstDate: DateTime(1980),
-                  lastDate: DateTime.now(),
-                );
-
-                if (_pickedBirthday != null) {
-                  setState(() {
-                    _enteredBirthday.text =
-                        DateFormat('yyyy-MM-dd').format(_pickedBirthday);
-                  });
-                }
-              },
-              keyboardType: TextInputType.datetime,
-              autocorrect: false,
-              textCapitalization: TextCapitalization.none,
-              validator: (value) {
-                if (item["is_required"] &&
-                    (value == null || value.trim().isEmpty)) {
-                  return item["errors"]["blank"];
-                }
-                return null;
-              },
-              onSaved: (value) {
-                _enteredBirthday.text = value!;
-              },
-            ),
-          );
+          buildForm = buildDateSelectionField(item);
+          break;
         case "password":
-          return Padding(
-            padding: const EdgeInsets.only(top: 15, left: 15, right: 15),
-            child: TextFormField(
-              keyboardType: TextInputType.text,
-              controller: _password,
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                labelText: item["title"],
-              ),
-              obscureText: true,
-              validator: (value) {
-                if (item["is_required"] &&
-                    (value == null || value.trim().isEmpty)) {
-                  return item["errors"]["blank"];
-                }
-
-                final RegExp passwordRegex =
-                    RegExp(r'^(?=.*[A-Z])(?=.*\d).{6,25}$');
-
-                if (!passwordRegex.hasMatch(value!)) {
-                  return item["errors"]["regex"];
-                }
-
-                return null;
-              },
-            ),
-          );
+          buildForm = buildPasswordField(item);
+          break;
+        case "password_confirmation":
+          buildForm = buildConfirmPasswordField(item);
+          break;
         default:
-          return Padding(
-            padding: const EdgeInsets.only(top: 15, left: 15, right: 15),
-            child: TextFormField(
-              keyboardType: TextInputType.text,
-              controller: _confirmPass,
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                labelText: item["title"],
-              ),
-              obscureText: true,
-              validator: (value) {
-                if (item["is_required"] &&
-                    (value == null || value.trim().isEmpty)) {
-                  return item["errors"]["blank"];
-                }
-
-                if (value != _password.text) {
-                  return item["errors"]["target_value_mismatch"];
-                }
-
-                return null;
-              },
-            ),
-          );
+          buildForm = buildTextFormField(item);
+          break;
       }
+
+      return Padding(
+        padding: const EdgeInsets.only(top: 15, left: 20, right: 20),
+        child: buildForm,
+      );
     }).toList();
   }
 
@@ -274,7 +292,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 padding: const EdgeInsets.all(10.0),
                 child: Container(
                   child: Text(
-                    widget.formDescription,
+                    formDescription,
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -282,7 +300,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 ),
               ),
-              if (widget.items.isNotEmpty)
+              if (items.isNotEmpty)
                 Center(
                   child: ListView(
                     physics: NeverScrollableScrollPhysics(),

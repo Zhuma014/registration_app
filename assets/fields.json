@@ -58,7 +58,7 @@
   {
     "id": 5,
     "title": "IIN",
-    "type": "input_text",
+    "type": "input_number",
     "description": "Refer to: <a href=\"https://ru.wikipedia.org/wiki/Индивидуальный_идентификационный_номер\"></a>",
     "is_required": true,
     "specs": {
@@ -75,7 +75,7 @@
   {
     "id": 6,
     "title": "Phone number",
-    "type": "input_text",
+    "type": "input_number",
     "description": null,
     "is_required": true,
     "specs": {
